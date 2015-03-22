@@ -169,6 +169,8 @@ int main(int argc, char **argv) {
 	if(usb_init() < 0)
 		die("USB initialization failed");
 
+	usb_set_power(true);
+
 	struct mosquitto *mosq = mqtt_init();
 	if(!mosq)
 		die("creating mosquitto object failed");
