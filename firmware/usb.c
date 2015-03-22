@@ -84,6 +84,8 @@ static int control_request(usbd_device *usbd_dev, struct usb_setup_data *req, ui
 			lock();
 		else
 			unlock();
+
+		return 1;
 	}
 
 	return 0;
