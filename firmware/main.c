@@ -10,7 +10,7 @@
 #include "lock.h"
 
 // C13 -> status LED
-// A8 -> buzzer
+// B9 -> buzzer
 
 void main(void) {
 	rcc_clock_setup_in_hse_8mhz_out_72mhz();
@@ -23,9 +23,9 @@ void main(void) {
 	gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO13);
 
 	// configure buzzer input
-	rcc_periph_clock_enable(RCC_GPIOA);
-	gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO8);
-	gpio_set(GPIOA, GPIO8); // pull up
+	rcc_periph_clock_enable(RCC_GPIOB);
+	gpio_set_mode(GPIOB, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO9);
+	gpio_set(GPIOB, GPIO9); // pull up
 
 	set_state(CLOSED);
 
@@ -37,7 +37,7 @@ void main(void) {
 		else
 			gpio_clear(GPIOC, GPIO13);
 
-		if(gpio_get(GPIOA, GPIO8) == 0 && get_state() == CLOSED)
+		if(gpio_get(GPIOB, GPIO9) == 0 && get_state() == CLOSED)
 			lock();
 	}
 }

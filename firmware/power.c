@@ -4,17 +4,17 @@
 #include "systick.h"
 #include "power.h"
 
-// XX -> power
+// A1 -> power
 
 void power_init(void) {
-	rcc_periph_clock_enable(RCC_GPIOB);
+	rcc_periph_clock_enable(RCC_GPIOA);
 
-	gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO4);
+	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO1);
 }
 
 void set_power(bool on) {
 	if(on)
-		gpio_set(GPIOB, GPIO4);
+		gpio_set(GPIOA, GPIO1);
 	else
-		gpio_clear(GPIOB, GPIO4);
+		gpio_clear(GPIOA, GPIO1);
 }
