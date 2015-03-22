@@ -5,6 +5,7 @@
 #include "state.h"
 #include "lock.h"
 #include "usb.h"
+#include "constants.h"
 
 static usbd_device *usbd_dev;
 
@@ -71,14 +72,14 @@ static int control_request(usbd_device *usbd_dev, struct usb_setup_data *req, ui
 	(void)complete;
 	(void)usbd_dev;
 
-	if(req->bRequest == 0) {
+	if(req->bRequest == USB_REQ_STATUS) {
 		if(req->wValue & 1)
 			set_state(OPEN);
 		else
 			set_state(CLOSED);
 
 		return 1;
-	} else if(req->bRequest == 1) {
+	} else if(req->bRequest == USB_REQ_LOCK) {
 		if(req->wValue & 1)
 			lock();
 		else
