@@ -5,6 +5,7 @@
 #include "state.h"
 #include "lock.h"
 #include "usb.h"
+#include "power.h"
 #include "constants.h"
 
 static usbd_device *usbd_dev;
@@ -84,6 +85,10 @@ static int control_request(usbd_device *usbd_dev, struct usb_setup_data *req, ui
 			lock();
 		else
 			unlock();
+
+		return 1;
+	} else if(req->bRequest == USB_REQ_POWER) {
+		set_power(req->wValue == 1);
 
 		return 1;
 	}
