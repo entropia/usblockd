@@ -10,8 +10,8 @@ all:
 		git submodule update ;\
 		fi
 	$(Q)$(MAKE) $(MFLAGS) -C libopencm3 lib
-	$(Q)$(MAKE) $(MFLAGS) -C src
+	$(Q)$(MAKE) $(MFLAGS) -C firmware
 
 clean:
 	$(Q)$(MAKE) $(MFLAGS) -C libopencm3 $@
-	$(Q)$(MAKE) $(MFLAGS) -C src $@
+	$(Q)$(MAKE) $(MFLAGS) -C firmware $@
