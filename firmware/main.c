@@ -8,6 +8,7 @@
 #include "usb.h"
 #include "state.h"
 #include "lock.h"
+#include "power.h"
 
 // C13 -> status LED
 // B9 -> buzzer
@@ -17,6 +18,8 @@ void main(void) {
 
 	init_systick();
 	init_usb();
+	power_init();
+	lock_init();
 
 	// configure status LED
 	rcc_periph_clock_enable(RCC_GPIOC);
