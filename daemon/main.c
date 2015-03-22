@@ -27,7 +27,7 @@ void set_status(bool status) {
 }
 
 enum action {
-	LOCK, UNLOCK, IDLE
+	LOCK, UNLOCK, IDLE, POWERCYCLE
 };
 
 volatile enum action action = IDLE;
@@ -39,6 +39,9 @@ void sighandler(int sig) {
 			break;
 		case SIGUSR2:
 			action = UNLOCK;
+			break;
+		case SIGHUP:
+			action = POWERCYCLE;
 			break;
 	}
 }
@@ -149,6 +152,14 @@ void usb_force_lock(bool lock) {
 		die("usb_force_lock failed: %s", libusb_error_name(ret));
 }
 
+void usb_set_power(bool on) {
+	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR,
+			USB_REQ_POWER, on ? 1 : 0, 0, NULL, 0, 500);
+
+	if(ret < 0)
+		die("usb_set_power failed: %s", libusb_error_name(ret));
+}
+
 int main(int argc, char **argv) {
 	(void) argc;
 	(void) argv;
@@ -169,6 +180,7 @@ int main(int argc, char **argv) {
 
 	sigaction(SIGUSR1, &sa, NULL);
 	sigaction(SIGUSR2, &sa, NULL);
+	sigaction(SIGHUP, &sa, NULL);
 
 	while(1) {
 		int ret;
@@ -182,7 +194,15 @@ int main(int argc, char **argv) {
 		usb_push_status();
 
 		if(action != IDLE) {
-			usb_force_lock(action == LOCK);
+			if(action == LOCK)
+				usb_force_lock(true);
+			else if(action == UNLOCK)
+				usb_force_lock(false);
+			else if(action == POWERCYCLE) {
+				usb_set_power(false);
+				sleep(2);
+				usb_set_power(true);
+			}
 
 			action = IDLE;
 		}
