@@ -1,0 +1,7 @@
+#!/bin/bash
+
+exec 2>&1
+
+echo $$ > /var/run/usblockd.pid
+
+exec chpst -utuerd:tuerd /usr/local/sbin/usblockd
