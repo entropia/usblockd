@@ -24,7 +24,8 @@ void main(void) {
 
 	// configure buzzer input
 	rcc_periph_clock_enable(RCC_GPIOA);
-	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO8);
+	gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO8);
+	gpio_set(GPIOA, GPIO8); // pull up
 
 	set_state(CLOSED);
 
