@@ -11,7 +11,9 @@ all:
 		fi
 	$(Q)$(MAKE) $(MFLAGS) -C libopencm3 lib
 	$(Q)$(MAKE) $(MFLAGS) -C firmware
+	$(Q)$(MAKE) $(MFLAGS) -C daemon
 
 clean:
 	$(Q)$(MAKE) $(MFLAGS) -C libopencm3 $@
 	$(Q)$(MAKE) $(MFLAGS) -C firmware $@
+	$(Q)$(MAKE) $(MFLAGS) -C daemon $@
