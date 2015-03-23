@@ -183,6 +183,8 @@ int main(int argc, char **argv) {
 	sigaction(SIGUSR2, &sa, NULL);
 	sigaction(SIGHUP, &sa, NULL);
 
+	printf("initialization done, entering main loop\n");
+
 	while(1) {
 		int ret;
 
