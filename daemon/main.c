@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <libusb.h>
 #include <mosquitto.h>
@@ -201,6 +202,8 @@ int main(int argc, char **argv) {
 			else if(action == UNLOCK)
 				usb_force_lock(false);
 			else if(action == POWERCYCLE) {
+				printf("reader powercycling requested\n");
+
 				usb_set_power(false);
 				sleep(2);
 				usb_set_power(true);
