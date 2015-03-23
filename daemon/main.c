@@ -201,9 +201,11 @@ int main(int argc, char **argv) {
 		usb_push_status();
 
 		if(action != IDLE) {
-			if(action == LOCK)
+			if(action == LOCK) {
+				printf("door lock requested\n");
+
 				usb_force_lock(true);
-			else if(action == UNLOCK)
+			} else if(action == UNLOCK)
 				usb_force_lock(false);
 			else if(action == POWERCYCLE) {
 				printf("reader powercycling requested\n");
