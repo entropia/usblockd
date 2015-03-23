@@ -32,6 +32,7 @@ void main(void) {
 
 	set_state(CLOSED);
 
+	uint32_t button_start = 0;
 	while(1) {
 		usb_poll();
 
@@ -40,7 +41,13 @@ void main(void) {
 		else
 			gpio_clear(GPIOC, GPIO13);
 
-		if(gpio_get(GPIOB, GPIO9) == 0 && get_state() == CLOSED)
+		if(gpio_get(GPIOB, GPIO9) == 0) {
+			if(button_start == 0)
+				button_start = ticks;
+		} else
+			button_start = 0;
+
+		if(button_start && time_after(ticks, button_start + (HZ/10)) && get_state() == CLOSED)
 			lock();
 	}
 }
