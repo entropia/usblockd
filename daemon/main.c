@@ -144,8 +144,6 @@ void usb_push_status(void) {
 }
 
 void usb_force_lock(bool lock) {
-	printf("lock forced to %s\n", lock ? "true" : "false");
-
 	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR,
 			USB_REQ_LOCK, lock ? 1 : 0, 0, NULL, 0, 500);
 
