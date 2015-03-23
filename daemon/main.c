@@ -163,6 +163,9 @@ int main(int argc, char **argv) {
 	(void) argc;
 	(void) argv;
 
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
 	printf("usblockd rev " GIT_REV " starting up\n");
 
 	if(usb_init() < 0)
