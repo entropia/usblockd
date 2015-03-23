@@ -168,8 +168,6 @@ int main(int argc, char **argv) {
 	if(usb_init() < 0)
 		die("USB initialization failed");
 
-	usb_set_power(true);
-
 	struct mosquitto *mosq = mqtt_init();
 	if(!mosq)
 		die("creating mosquitto object failed");
@@ -182,6 +180,9 @@ int main(int argc, char **argv) {
 	sigaction(SIGUSR1, &sa, NULL);
 	sigaction(SIGUSR2, &sa, NULL);
 	sigaction(SIGHUP, &sa, NULL);
+
+	usb_push_status();
+	usb_set_power(true);
 
 	printf("initialization done, entering main loop\n");
 
