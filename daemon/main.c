@@ -91,8 +91,6 @@ void mqtt_msg_cb(struct mosquitto *mosq, void *userdata, const struct mosquitto_
 }
 
 struct mosquitto *mqtt_init(void) {
-	const char *host = getenv_or_die("MQTT_HOST");
-
 	struct mosquitto *mosq = mosquitto_new(NULL, true, NULL);
 	if(!mosq) {
 		plogm("creating mosquitto object failed");
@@ -102,18 +100,6 @@ struct mosquitto *mqtt_init(void) {
 
 	mosquitto_connect_callback_set(mosq, mqtt_connect_cb);
 	mosquitto_message_callback_set(mosq, mqtt_msg_cb);
-
-	int ret = mosquitto_connect(mosq, host, 1883, 10);
-	if(ret != MOSQ_ERR_SUCCESS) {
-		if(ret == MOSQ_ERR_ERRNO)
-			plogm("mosquitto_connect failed with errno");
-		else
-			logm("mosquitto_connect failed");
-
-		mosquitto_destroy(mosq);
-
-		return NULL;
-	}
 
 	return mosq;
 }
@@ -165,21 +151,35 @@ int main(int argc, char **argv) {
 	(void) argc;
 	(void) argv;
 
+	int ret;
+
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
 	printf("usblockd rev " GIT_REV " starting up\n");
 
+	// initialize USB
 	if(usb_init() < 0)
 		die("USB initialization failed");
 
+	// initialize MQTT
 	mosquitto_lib_init();
+	struct mosquitto *mosq = mqtt_init();
 
+	const char *host = getenv_or_die("MQTT_HOST");
 	time_t last_mqtt_try = now();
-	struct mosquitto *mosq = mqtt_connect();
-	if(!mosq)
-		logm("connect failed, retrying in %u seconds", MQTT_RETRY_TIME);
 
+	ret = mosquitto_connect(mosq, host, 1883, 10);
+	if(ret != MOSQ_ERR_SUCCESS) {
+		if(ret == MOSQ_ERR_ERRNO)
+			plogm("mosquitto_connect failed with errno");
+		else
+			logm("mosquitto_connect failed");
+
+		logm("retrying in %u seconds", MQTT_RETRY_TIME);
+	}
+
+	// register signal handlers
 	struct sigaction sa;
 	sa.sa_handler = sighandler;
 	sigemptyset(&sa.sa_mask);
@@ -189,44 +189,50 @@ int main(int argc, char **argv) {
 	sigaction(SIGUSR2, &sa, NULL);
 	sigaction(SIGHUP, &sa, NULL);
 
+	// initialize hardware
 	usb_push_status();
 	usb_set_power(true);
 
 	printf("initialization done, entering main loop\n");
 
 	while(1) {
-		int ret;
+		// handle MQTT
+		//
+		// As mosquitto has no external API for checking for
+		// connectedness, we have to run mosquitto_loop and check for
+		// NO_CONN.
 
-		if(mosq) {
-			ret = mosquitto_loop(mosq, 1000, 1);
-			if(ret != MOSQ_ERR_SUCCESS) {
+		ret = mosquitto_loop(mosq, 1000, 1);
+		if(ret != MOSQ_ERR_SUCCESS) {
+			if(ret == MOSQ_ERR_NO_CONN || ret == MOSQ_ERR_CONN_LOST) {
+				sleep(1);
+
+				time_t now = time();
+
+				if(now - last_mqtt_try > MQTT_RETRY_TIME) {
+					logm("MQTT is not connected, trying reconnect");
+
+					last_mqtt_try = now;
+
+					mosq = mosqitto_reconnect(mosq);
+					if(!mosq)
+						logm("reconnect failed, next try in %u seconds", MQTT_RETRY_TIME);
+					else
+						logm("reconnect succeeded");
+				}
+			} else {
 				const char *errstr = mosquitto_strlogm(ret);
 				die("mosquitto loop failed: %s", errstr);
 			}
-
+		} else {
 			/*
 			 * we only push the status when MQTT is working and let
 			 * the hardware time out on its own otherwise
 			 */
 			usb_push_status();
-		} else {
-			time_t now = time();
-
-			if(now - last_mqtt_try > MQTT_RETRY_TIME) {
-				logm("MQTT is not connected, trying reconnect");
-
-				last_mqtt_try = now;
-
-				mosq = mosq_connect();
-				if(!mosq)
-					logm("reconnect failed, next try in %u seconds", MQTT_RETRY_TIME);
-				else
-					logm("reconnect succeeded");
-			}
-
-			sleep(1);
 		}
 
+		// handle external requests
 		if(action != IDLE) {
 			if(action == LOCK) {
 				logm("door lock requested");
