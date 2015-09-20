@@ -93,7 +93,7 @@ void mqtt_msg_cb(struct mosquitto *mosq, void *userdata, const struct mosquitto_
 struct mosquitto *mqtt_init(void) {
 	struct mosquitto *mosq = mosquitto_new(NULL, true, NULL);
 	if(!mosq) {
-		plogm("creating mosquitto object failed");
+		perror("creating mosquitto object failed");
 
 		return NULL;
 	}
@@ -167,12 +167,12 @@ int main(int argc, char **argv) {
 	struct mosquitto *mosq = mqtt_init();
 
 	const char *host = getenv_or_die("MQTT_HOST");
-	time_t last_mqtt_try = now();
+	time_t last_mqtt_try = time(NULL);
 
 	ret = mosquitto_connect(mosq, host, 1883, 10);
 	if(ret != MOSQ_ERR_SUCCESS) {
 		if(ret == MOSQ_ERR_ERRNO)
-			plogm("mosquitto_connect failed with errno");
+			perror("mosquitto_connect failed with errno");
 		else
 			logm("mosquitto_connect failed");
 
@@ -207,21 +207,21 @@ int main(int argc, char **argv) {
 			if(ret == MOSQ_ERR_NO_CONN || ret == MOSQ_ERR_CONN_LOST) {
 				sleep(1);
 
-				time_t now = time();
+				time_t now = time(NULL);
 
 				if(now - last_mqtt_try > MQTT_RETRY_TIME) {
 					logm("MQTT is not connected, trying reconnect");
 
 					last_mqtt_try = now;
 
-					mosq = mosqitto_reconnect(mosq);
-					if(!mosq)
+					ret = mosquitto_reconnect(mosq);
+					if(ret != MOSQ_ERR_SUCCESS)
 						logm("reconnect failed, next try in %u seconds", MQTT_RETRY_TIME);
 					else
 						logm("reconnect succeeded");
 				}
 			} else {
-				const char *errstr = mosquitto_strlogm(ret);
+				const char *errstr = mosquitto_strerror(ret);
 				die("mosquitto loop failed: %s", errstr);
 			}
 		} else {
