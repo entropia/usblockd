@@ -3,6 +3,7 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <libusb.h>
 #include <mosquitto.h>
@@ -13,6 +14,7 @@
 #define USB_VID 0xca05
 #define USB_PID 0x0001
 #define STATUS_TOPIC "/public/eden/clubstatus"
+#define MQTT_RETRY_TIME 30
 
 volatile bool club_open = false;
 
@@ -64,7 +66,7 @@ void mqtt_connect_cb(struct mosquitto *mosq, void *userdata, int result) {
 
 	int ret = mosquitto_subscribe(mosq, NULL, STATUS_TOPIC, 1);
 	if(ret != MOSQ_ERR_SUCCESS)
-		pdie("topic subscribe failed: %s", mosquitto_strerror(ret));
+		pdie("topic subscribe failed: %s", mosquitto_strlogm(ret));
 }
 
 void mqtt_msg_cb(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message) {
@@ -81,21 +83,19 @@ void mqtt_msg_cb(struct mosquitto *mosq, void *userdata, const struct mosquitto_
 				set_status(true);
 				break;
 			default:
-				error("got unknown status \"%c\"", status);
+				logm("got unknown status \"%c\"", status);
 				break;
 		}
 	} else
-		error("got empty status message");
+		logm("got empty status message");
 }
 
 struct mosquitto *mqtt_init(void) {
 	const char *host = getenv_or_die("MQTT_HOST");
 
-	mosquitto_lib_init();
-
 	struct mosquitto *mosq = mosquitto_new(NULL, true, NULL);
 	if(!mosq) {
-		perror("creating mosquitto object failed");
+		plogm("creating mosquitto object failed");
 
 		return NULL;
 	}
@@ -106,9 +106,11 @@ struct mosquitto *mqtt_init(void) {
 	int ret = mosquitto_connect(mosq, host, 1883, 10);
 	if(ret != MOSQ_ERR_SUCCESS) {
 		if(ret == MOSQ_ERR_ERRNO)
-			perror("mosquitto_connect failed with errno");
+			plogm("mosquitto_connect failed with errno");
 		else
-			error("mosquitto_connect failed");
+			logm("mosquitto_connect failed");
+
+		mosquitto_destroy(mosq);
 
 		return NULL;
 	}
@@ -122,13 +124,13 @@ libusb_device_handle *usb_handle;
 int usb_init(void) {
 	int ret = libusb_init(&usb);
 	if(ret) {
-		error("libusb_init failed: %s", libusb_error_name(ret));
+		logm("libusb_init failed: %s", libusb_error_name(ret));
 		return -1;
 	}
 
 	usb_handle = libusb_open_device_with_vid_pid(usb, USB_VID, USB_PID);
 	if(!usb_handle) {
-		error("couldn't find USB device");
+		logm("couldn't find USB device");
 		return -1;
 	}
 
@@ -171,9 +173,12 @@ int main(int argc, char **argv) {
 	if(usb_init() < 0)
 		die("USB initialization failed");
 
-	struct mosquitto *mosq = mqtt_init();
+	mosquitto_lib_init();
+
+	time_t last_mqtt_try = now();
+	struct mosquitto *mosq = mqtt_connect();
 	if(!mosq)
-		die("creating mosquitto object failed");
+		logm("connect failed, retrying in %u seconds", MQTT_RETRY_TIME);
 
 	struct sigaction sa;
 	sa.sa_handler = sighandler;
@@ -192,23 +197,45 @@ int main(int argc, char **argv) {
 	while(1) {
 		int ret;
 
-		ret = mosquitto_loop(mosq, 1000, 1);
-		if(ret != MOSQ_ERR_SUCCESS) {
-			const char *errstr = mosquitto_strerror(ret);
-			die("mosquitto loop failed: %s", errstr);
-		}
+		if(mosq) {
+			ret = mosquitto_loop(mosq, 1000, 1);
+			if(ret != MOSQ_ERR_SUCCESS) {
+				const char *errstr = mosquitto_strlogm(ret);
+				die("mosquitto loop failed: %s", errstr);
+			}
 
-		usb_push_status();
+			/*
+			 * we only push the status when MQTT is working and let
+			 * the hardware time out on its own otherwise
+			 */
+			usb_push_status();
+		} else {
+			time_t now = time();
+
+			if(now - last_mqtt_try > MQTT_RETRY_TIME) {
+				logm("MQTT is not connected, trying reconnect");
+
+				last_mqtt_try = now;
+
+				mosq = mosq_connect();
+				if(!mosq)
+					logm("reconnect failed, next try in %u seconds", MQTT_RETRY_TIME);
+				else
+					logm("reconnect succeeded");
+			}
+
+			sleep(1);
+		}
 
 		if(action != IDLE) {
 			if(action == LOCK) {
-				printf("door lock requested\n");
+				logm("door lock requested");
 
 				usb_force_lock(true);
 			} else if(action == UNLOCK)
 				usb_force_lock(false);
 			else if(action == POWERCYCLE) {
-				printf("reader powercycling requested\n");
+				logm("reader powercycling requested");
 
 				usb_set_power(false);
 				sleep(2);
