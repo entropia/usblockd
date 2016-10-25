@@ -49,5 +49,8 @@ void main(void) {
 
 		if(button_start && time_after(ticks, button_start + (HZ/10)) && get_state() == CLOSED)
 			lock();
+
+		if(button_start && time_after(ticks, button_start + HZ * 15))
+			lock();
 	}
 }
