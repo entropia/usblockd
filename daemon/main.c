@@ -13,6 +13,7 @@
 
 #define USB_VID 0xca05
 #define USB_PID 0x0001
+#define LOCK_TOPIC "/lock/club"
 #define STATUS_TOPIC "/public/eden/clubstatus"
 #define MQTT_RETRY_TIME 30
 
@@ -124,7 +125,7 @@ int usb_init(void) {
 }
 
 void usb_push_status(void) {
-	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR,
+	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_OUT,
 			USB_REQ_STATUS, club_open ? 1 : 0, 0, NULL, 0, 500);
 
 	if(ret < 0)
@@ -132,7 +133,7 @@ void usb_push_status(void) {
 }
 
 void usb_force_lock(bool lock) {
-	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR,
+	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_OUT,
 			USB_REQ_LOCK, lock ? 1 : 0, 0, NULL, 0, 500);
 
 	if(ret < 0)
@@ -140,11 +141,23 @@ void usb_force_lock(bool lock) {
 }
 
 void usb_set_power(bool on) {
-	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR,
+	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_OUT,
 			USB_REQ_POWER, on ? 1 : 0, 0, NULL, 0, 500);
 
 	if(ret < 0)
 		die("usb_set_power failed: %s", libusb_error_name(ret));
+}
+
+int usb_get_status(){
+    uint16_t value = 0;
+	int ret = libusb_control_transfer(usb_handle, LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_IN,
+			USB_GET_STATE, 0, 0, (unsigned char*)&value, 1, 500);
+
+	if(ret < 0) {
+        die("usb_get_status failed: %s", libusb_error_name(ret));
+    }
+
+    return value;
 }
 
 int main(int argc, char **argv) {
@@ -238,6 +251,12 @@ int main(int argc, char **argv) {
 			 */
 			usb_push_status();
 		}
+
+        if (usb_get_status() == 1) {
+            logm("door lock button pressed, send MQTT");
+            mosquitto_publish(mosq, NULL, LOCK_TOPIC, 5, "close", 0, false);
+            sleep(1);
+        }
 
 		// handle external requests
 		if(action != IDLE) {

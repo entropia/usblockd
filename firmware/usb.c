@@ -7,6 +7,7 @@
 #include "usb.h"
 #include "power.h"
 #include "constants.h"
+#include <libopencm3/stm32/gpio.h>
 
 static usbd_device *usbd_dev;
 
@@ -87,8 +88,18 @@ static int control_request(usbd_device *usbd_dev, struct usb_setup_data *req, ui
 			unlock();
 
 		return 1;
-	} else if(req->bRequest == USB_REQ_POWER) {
+	} else if (req->bRequest == USB_REQ_POWER) {
 		set_power(req->wValue == 1);
+		return 1;
+
+	}else if (req->bRequest == USB_GET_STATE) {
+        *len = 1;
+
+        if (gpio_get(GPIOB, GPIO9) == 0) {
+            (*buf)[0] = 1;
+        } else {
+            (*buf)[0] = 0;
+        }
 
 		return 1;
 	}
