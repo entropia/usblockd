@@ -169,6 +169,13 @@ int main(int argc, char **argv) {
 	const char *host = getenv_or_die("MQTT_HOST");
 	time_t last_mqtt_try = time(NULL);
 
+	const char *username = getenv("MQTT_USERNAME");
+	const char *password = getenv("MQTT_PASSWORD");
+
+	if (username != NULL && password != NULL) {
+		mosquitto_username_pw_set(mosq, username, password);
+	}
+
 	ret = mosquitto_connect(mosq, host, 1883, 10);
 	if(ret != MOSQ_ERR_SUCCESS) {
 		if(ret == MOSQ_ERR_ERRNO)
